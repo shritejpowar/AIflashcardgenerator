@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Flashcard Generator</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      color: #fff;
+      margin: 30px 0 10px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+      font-size: 2em;
+    }
+
+    .container {
+      width: 95%;
+      max-width: 800px;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      margin: 20px auto;
+    }
+
+    .flashcards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 30px  /* increased horizontal gap */ 30px;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      max-width: 800px;
+    }
+
+    .card {
+      border-radius: 12px;
+      cursor: pointer;
+      perspective: 1000px;
+      transition: transform 0.3s ease;
+      width: 48%; /* two cards per row */
+      min-width: 280px;
+      max-width: 100%;
+      flex: none;
+      min-height: 220px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.8s;
+      min-height: 220px;
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      padding: 20px;
+      border-radius: 12px;
+      color: #fff;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      font-size: 1.1em;
+      font-weight: 500;
+      line-height: 1.4em;
+      overflow: visible;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      height: auto;
+      min-height: 220px;
+    }
+
+    .card-front h4,
+    .card-back h4 {
+      margin-bottom: 8px;
+      font-size: 1.3em;
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+    }
+
+    .card-front p,
+    .card-back p {
+      margin: 0;
+      white-space: normal;
+      overflow: visible;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    button {
+      background: #66a6ff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #578ef2;
+    }
+
+    .topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .topic {
+      background: linear-gradient(45deg, #5ee7df, #b490ca);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      user-select: none;
+    }
+
+    .topic:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+    }
+
+    .loading {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 2.5em;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      user-select: none;
+      color: #ff6f00;
+      animation: pulseOpacity 1.8s infinite;
+    }
+
+    @keyframes pulseOpacity {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>🧠 AI Flashcard Generator</h1>
+
+  <!-- Flashcards First -->
+  <div class="flashcards" id="flashcards"></div>
+
+  <!-- Input and Suggestions -->
+  <div class="container">
+    <input type="text" id="topicInput" placeholder="Enter a study topic (e.g., Algorithms)" />
+    <button onclick="generateFlashcards()">Generate Flashcards</button>
+
+    <h3 style="margin-top: 20px;">🎯 Suggested Topics</h3>
+    <div class="topics" id="topics">
+      <span class="topic" onclick="useTopic('Algorithms')">Algorithms</span>
+      <span class="topic" onclick="useTopic('Data Structures')">Data Structures</span>
+      <span class="topic" onclick="useTopic('Operating Systems')">Operating Systems</span>
+      <span class="topic" onclick="useTopic('Computer Networks')">Computer Networks</span>
+      <span class="topic" onclick="useTopic('Machine Learning')">Machine Learning</span>
+      <span class="topic" onclick="useTopic('Database Systems')">Database Systems</span>
+      <span class="topic" onclick="useTopic('Python Programming')">Python Programming</span>
+      <span class="topic" onclick="useTopic('Cybersecurity')">Cybersecurity</span>
+    </div>
+
+    <div class="loading" id="loading" style="display:none;">✨ Generating flashcards...</div>
+  </div>
+
+  <script>
+    const API_KEY = "AIzaSyAvgMkE5iUX5Xe-NrALz_ofUuF45EK7MQc"; // Replace with your Gemini API key
+    const flashcardsContainer = document.getElementById("flashcards");
+    const loadingIndicator = document.getElementById("loading");
+
+    const gradients = [
+      "linear-gradient(135deg, #f093fb, #f5576c)",
+      "linear-gradient(135deg, #5ee7df, #b490ca)",
+      "linear-gradient(135deg, #f6d365, #fda085)",
+      "linear-gradient(135deg, #c79081, #dfa579)",
+      "linear-gradient(135deg, #84fab0, #8fd3f4)",
+      "linear-gradient(135deg, #fccb90, #d57eeb)",
+      "linear-gradient(135deg, #e0c3fc, #8ec5fc)",
+      "linear-gradient(135deg, #a1c4fd, #c2e9fb)"
+    ];
+
+    function useTopic(topic) {
+      document.getElementById("topicInput").value = topic;
+      generateFlashcards();
+    }
+
+    async function generateFlashcards() {
+      const topic = document.getElementById("topicInput").value.trim();
+      if (!topic) return alert("Please enter a topic.");
+
+      flashcardsContainer.innerHTML = '';
+      loadingIndicator.style.display = 'block';
+
+      const prompt = `
+Generate 4 flashcards for the topic "${topic}".
+Each flashcard should be in the format:
+Q: <question>
+A: <answer>
+Each answer must be less than 45 words.
+Keep it concise and useful for studying.
+`;
+
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }]
+      };
+
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, 
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          }
+        );
+
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const cards = parseFlashcards(text);
+        showFlashcards(cards.slice(0, 4)); // limit to 4 cards
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        loadingIndicator.style.display = 'none';
+      }
+    }
+
+    function parseFlashcards(text) {
+      const lines = text.split('\n').filter(line => line.trim() !== "");
+      const flashcards = [];
+      let currentCard = {};
+      for (let line of lines) {
+        if (line.startsWith("Q:")) {
+          currentCard = { question: line.slice(2).trim() };
+        } else if (line.startsWith("A:")) {
+          currentCard.answer = line.slice(2).trim();
+          flashcards.push(currentCard);
+        }
+      }
+      return flashcards;
+    }
+
+    function showFlashcards(cards) {
+      flashcardsContainer.innerHTML = "";
+      cards.forEach(({ question, answer }, i) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.style.background = gradients[i % gradients.length];
+
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front" style="background: ${gradients[i % gradients.length]}">
+              <h4>Question</h4>
+              <p>${question}</p>
+            </div>
+            <div class="card-back" style="background: ${gradients[(i+1) % gradients.length]}">
+              <h4>Answer</h4>
+              <p>${answer}</p>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener("click", () => {
+          card.classList.toggle("flipped");
+        });
+
+        flashcardsContainer.appendChild(card);
+      });
+    }
+  </script>
+</body>
+</html>
